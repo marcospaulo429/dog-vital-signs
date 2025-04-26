@@ -416,12 +416,6 @@ class GanomalyModel(nn.Module):
             Defaults to ``0``.
         add_final_conv_layer (bool, optional): Add final convolution to encoders.
             Defaults to ``True``.
-
-    References:
-        - Title: GANomaly: Semi-Supervised Anomaly Detection via Adversarial
-                Training
-        - Authors: Samet Akcay, Amir Atapour-Abarghouei, Toby P. Breckon
-        - URL: https://arxiv.org/abs/1805.06725
     """
 
     def __init__(
@@ -434,7 +428,7 @@ class GanomalyModel(nn.Module):
         add_final_conv_layer: bool = True,
     ) -> None:
         super().__init__()
-        self.generator: Generator = Generator(
+        self.generator = Generator(
             input_size=input_size,
             latent_vec_size=latent_vec_size,
             num_input_channels=num_input_channels,
@@ -442,7 +436,7 @@ class GanomalyModel(nn.Module):
             extra_layers=extra_layers,
             add_final_conv_layer=add_final_conv_layer,
         )
-        self.discriminator: Discriminator = Discriminator(
+        self.discriminator = Discriminator(
             input_size=input_size,
             num_input_channels=num_input_channels,
             n_features=n_features,
@@ -465,29 +459,37 @@ class GanomalyModel(nn.Module):
             nn.init.normal_(module.weight.data, 1.0, 0.02)
             nn.init.constant_(module.bias.data, 0)
 
-    def forward(
-        self,
-        batch: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | InferenceBatch:
+    def forward(self, batch: torch.Tensor) -> tuple:
         """Forward pass through GANomaly model.
 
         Args:
             batch (torch.Tensor): Batch of input images
 
         Returns:
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] |
-            InferenceBatch:
-                If training:
-                    - Padded input batch
-                    - Generated images
-                    - First encoder's latent vectors
-                    - Second encoder's latent vectors
-                If inference:
-                    - Batch containing anomaly scores
+            tuple: Contains:
+                - Generated images
+                - First encoder's latent vectors
+                - Second encoder's latent vectors
+                - Discriminator classification scores
+                - Discriminator features
         """
-        padded_batch = pad_nextpow2(batch)
-        fake, latent_i, latent_o = self.generator(padded_batch)
-        if self.training:
-            return padded_batch, fake, latent_i, latent_o
-        scores = torch.mean(torch.pow((latent_i - latent_o), 2), dim=1).view(-1)  # convert nx1x1 to n
-        return InferenceBatch(pred_score=scores)
+        # Generate images and get latent vectors
+        fake, latent_i, latent_o = self.generator(batch)
+        
+        # Get discriminator outputs
+        disc_real, features_real = self.discriminator(batch)
+        disc_fake, features_fake = self.discriminator(fake)
+        
+        return fake, latent_i, latent_o, disc_real, disc_fake, features_real, features_fake
+
+    def compute_anomaly_score(self, latent_i: torch.Tensor, latent_o: torch.Tensor) -> torch.Tensor:
+        """Compute anomaly score based on latent vectors.
+        
+        Args:
+            latent_i (torch.Tensor): First encoder's latent vectors
+            latent_o (torch.Tensor): Second encoder's latent vectors
+            
+        Returns:
+            torch.Tensor: Anomaly scores
+        """
+        return torch.mean(torch.pow((latent_i - latent_o), 2), dim=1)

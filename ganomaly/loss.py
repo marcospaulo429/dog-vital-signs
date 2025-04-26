@@ -5,22 +5,7 @@ The GANomaly model uses two loss functions:
 1. Generator Loss: Combines adversarial loss, reconstruction loss and encoding loss
 2. Discriminator Loss: Binary cross entropy loss for real/fake image discrimination
 
-Example:
-    >>> from anomalib.models.image.ganomaly.loss import GeneratorLoss
-    >>> generator_loss = GeneratorLoss(wadv=1, wcon=50, wenc=1)
-    >>> loss = generator_loss(latent_i, latent_o, images, fake, pred_real, pred_fake)
-
-    >>> from anomalib.models.image.ganomaly.loss import DiscriminatorLoss
-    >>> discriminator_loss = DiscriminatorLoss()
-    >>> loss = discriminator_loss(pred_real, pred_fake)
-
-See Also:
-    :class:`anomalib.models.image.ganomaly.torch_model.GanomalyModel`:
-        PyTorch implementation of the GANomaly model architecture.
 """
-
-# Copyright (C) 2022-2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
 
 import torch
 from torch import nn
